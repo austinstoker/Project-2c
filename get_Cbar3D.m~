@@ -1,0 +1,36 @@
+function [ Cbar3D ] = get_Cbar3D( MatProp, Angle)
+E1=MatProp(1);
+E2=MatProp(2);
+G12=MatProp(3);
+v12=MatProp(4);
+v13=MatProp(7);
+v23=MatProp(8);
+
+v21=v12;
+v31=v13;
+v32=v23;
+
+v=v12*v21+v23*v32+v31*v13+2*v21*v32*v13;
+
+G13=G12;
+G23=E2/(2*(1+nu23));
+E3=E2;
+
+Trad = (Angle*pi)/180;
+m = cos(Trad);
+n = sin(Trad);
+
+
+C11=(1-v21*v32)*E1/(1-v);
+C12=(v12-321*v13)*E2/(1-v);
+
+
+T = [m^2, n^2,2*m*n; n^2,m^2,-2*n*m;-m*n,m*n, m^2-n^2];
+Tinv = T^(-1);
+R = [1,0,0;0,1,0;0,0,2];
+Rinv = [1,0,0;0,1,0;0,0,.5];
+
+CbTemp = R*Tinv*Rinv*C*T;
+Cbar3D = CbTemp;
+end
+
