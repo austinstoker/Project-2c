@@ -373,7 +373,7 @@ if ~GivenTx
 end
     
 
-%% Use K and F mod to find 
+%% Use K and F mod to find Strains and Stresses
 
 R=K_mod^-1*F_mod;
 
