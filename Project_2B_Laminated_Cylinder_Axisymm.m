@@ -2,7 +2,7 @@
 % Austin Stoker
 %
 
-readFromFileOnly=false;
+readFromFileOnly=true;
 useOldMod=false;
 
 if readFromFileOnly==false
@@ -59,12 +59,14 @@ LoadHeader='Pin, Pout, dT, Px/ex, Tx/Gamx, GivenPx, GivenTx';
 dlmwrite('Loads.txt',LoadHeader,'');
 dlmwrite('Loads.txt',LoadsTemp,'-append');
 
-end
-
 MaterialsFile='materials.txt';
 LayerGeoFile='LayerGeometery.dat';
 LoadFile='Loads.txt';
 PipeFile='PipeDimensions.dat';
+
+end
+
+
 
 %% read in
 % Geometery read in
@@ -113,14 +115,18 @@ Pout=Loads(2);
 dT=Loads(3);
 if(GivenPx)
     Px=Loads(4);
+    Epsx=0;
 else
     Epsx=Loads(4);
+    Px=0;
 end
 
 if(GivenTx)
     Tx=Loads(5);
+    Gamx=0;
 else
     Gamx=Loads(5);
+    Tx=0;
 end
 
 
