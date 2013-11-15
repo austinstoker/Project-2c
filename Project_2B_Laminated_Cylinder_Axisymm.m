@@ -2,13 +2,10 @@
 % Austin Stoker
 %
 
-close all
-clearvars
-clc
+readFromFileOnly=false;
+useOldMod=false;
 
-readFromFile=false;
-
-if readFromFile==false
+if readFromFileOnly==false
     
 % Material Write out
 
@@ -25,7 +22,7 @@ dlmwrite('materials.txt',Mat_Types,'-append');
 % Geometry Write out
 r_in=30;
 
-Angles=[45,-45,-45,45]; %
+Angles=[0,90,90,0]; %
 
 t=.025;
 
@@ -35,6 +32,7 @@ Thicknesses= t*ones(1,numel(Angles)); %[t,t,t,t,t,t,t,t];
 Geometery(1,:)=Angles;
 Geometery(2,:)=Materials;
 Geometery(3,:)=Thicknesses;
+
 
 GeoHeader ='The rows are: Angles (degrees), Material numbers, thicknesses';
 dlmwrite('LayerGeometery.dat',GeoHeader,'');
@@ -46,15 +44,15 @@ dlmwrite('PipeDimensions.dat',r_in,'-append');
 
 
 % Loads Write out
-Pin=10;  %pressure inside the cylinder
+Pin=0;  %pressure inside the cylinder
 Pout=0; % Pressure on the outside
 dT=0;   %change in Temperature
 
 GivenPx=true;
 Px_ex=0;
 
-GivenTx=true;
-Tx_Gamx=0;
+GivenTx=false;
+Tx_Gamx=.001;
 
 LoadsTemp=[Pin,Pout,dT,Px_ex,Tx_Gamx,GivenPx,GivenTx];
 LoadHeader='Pin, Pout, dT, Px/ex, Tx/Gamx, GivenPx, GivenTx';
@@ -63,9 +61,14 @@ dlmwrite('Loads.txt',LoadsTemp,'-append');
 
 end
 
+MaterialsFile='materials.txt';
+LayerGeoFile='LayerGeometery.dat';
+LoadFile='Loads.txt';
+PipeFile='PipeDimensions.dat';
+
 %% read in
 % Geometery read in
-Geometery =  dlmread('LayerGeometery.dat',',',1,0);
+Geometery =  dlmread(LayerGeoFile,',',1,0);
 Angles= Geometery(1,:);
 Materials=Geometery(2,:);
 Thicknesses=Geometery(3,:);
@@ -73,7 +76,7 @@ NL=size(Angles,2);
 
 
 % Pipe Geometery Read in
-r_in= dlmread('PipeDimensions.dat',',',1,0);
+r_in= dlmread(PipeFile,',',1,0);
 rsteps=2; %points in mid layer.
 r=zeros(NL+1,1);
 r(1)=r_in;
@@ -98,10 +101,10 @@ for i=2:NL+1
 end
 
 % Material Read in
-Mat_Types = dlmread('materials.txt',',',1,0);
+Mat_Types = dlmread(MaterialsFile,',',1,0);
 
 % Loads Read in
-LoadsTemp=dlmread('Loads.txt',',',1,0);
+LoadsTemp=dlmread(LoadFile,',',1,0);
 Loads=LoadsTemp(1:5);
 GivenPx=LoadsTemp(6);
 GivenTx=LoadsTemp(7);
@@ -159,12 +162,11 @@ for i=1:NL
     al_on(:,i)=[al_1(i);al_2(i);al_r(i)];
     al_off(:,i)=[al_x(i);al_th(i);al_r(i);al_x_th(i)];
 
-    if(Angles(i)==0||Angles(i)==90)
+    if(Angles(i)==0)
         Gam(i)=0;
         Omega(i)=0;
         Psi(i)=0;
         Sigma(i)=0;
-        lambda(i)=0;
     else
         Gam(i)=(C_bar(1,2,i)-C_bar(1,3,i))/(C_bar(3,3,i)-C_bar(2,2,i));
         Omega(i)=(C_bar(2,6,i)-2*C_bar(3,6,i))/(4*C_bar(3,3,i)-C_bar(2,2,i));
@@ -173,8 +175,8 @@ for i=1:NL
             (C_bar(3,3,i)-C_bar(3,2,i))*al_r(i)+...
             (C_bar(6,3,i)-C_bar(6,2,i))*al_x_th(i);
         Psi(i)=Sigma(i)/(C_bar(3,3,i)-C_bar(2,2,i));
-        lambda(i)=sqrt(C_bar(2,2,i)/C_bar(3,3,i));
     end
+    lambda(i)=sqrt(C_bar(2,2,i)/C_bar(3,3,i));
 end
 
 %% Get the K matrix
@@ -220,8 +222,8 @@ for k=1:NL-1
     K(2*k+1,2*k-1)=r(k+1)^(lambda(k)-1)*(C_bar(2,3,k)+lambda(k)*C_bar(3,3,k));
     K(2*k+1,2*k)=r(k+1)^(-lambda(k)-1)*(C_bar(2,3,k)-lambda(k)*C_bar(3,3,k));
     
-    K(2*k+1,2*k+1)=-r(k+1)^(lambda(k+1)-1)*(C_bar(2,3,k)+lambda(k+1)*C_bar(3,3,k));
-    K(2*k+1,2*k+2)=-r(k+1)^(-lambda(k+1)-1)*(C_bar(2,3,k)-lambda(k+1)*C_bar(3,3,k));
+    K(2*k+1,2*k+1)=-r(k+1)^(lambda(k+1)-1)*(C_bar(2,3,k+1)+lambda(k+1)*C_bar(3,3,k+1));
+    K(2*k+1,2*k+2)=-r(k+1)^(-lambda(k+1)-1)*(C_bar(2,3,k+1)-lambda(k+1)*C_bar(3,3,k+1));
     
     bob(k)=0;
     bob(k+1)=0;
@@ -315,63 +317,78 @@ end
 
 
 % Modify K and F
-K_mod=K;
-F_mod=F;
-if ~GivenPx
-    for k=1:NL-1
-        K_mod(1,2*NL+1)=0;
-        F_mod(1)=F_mod(1)-(C_bar(1,3,1)+(C_bar(2,3,1)+C_bar(3,3,1))*Gam(1))*Epsx;
+if useOldMod
+    K_mod=K;
+    F_mod=F;
+    if ~GivenPx
+        for k=1:NL-1
+            K_mod(1,2*NL+1)=0;
+            F_mod(1)=F_mod(1)-(C_bar(1,3,1)+(C_bar(2,3,1)+C_bar(3,3,1))*Gam(1))*Epsx;
 
-        K_mod(2*k,2*NL+1)=0;
-        F_mod(2*k)=F_mod(2*k)-(Gam(k)-Gam(k+1))*r(k+1)*Epsx;
+            K_mod(2*k,2*NL+1)=0;
+            F_mod(2*k)=F_mod(2*k)-(Gam(k)-Gam(k+1))*r(k+1)*Epsx;
 
-        K_mod(2*k+1,2*NL+1)=0;
-        F_mod(2*k+1)=F_mod(2*k+1)-(C_bar(1,3,k)+(C_bar(2,3,k)+C_bar(3,3,k))*Gam(k)-(C_bar(1,3,k+1)+(C_bar(2,3,k+1)+C_bar(3,3,k+1))*Gam(k+1)))*Epsx;
+            K_mod(2*k+1,2*NL+1)=0;
+            F_mod(2*k+1)=F_mod(2*k+1)-(C_bar(1,3,k)+(C_bar(2,3,k)+C_bar(3,3,k))*Gam(k)-(C_bar(1,3,k+1)+(C_bar(2,3,k+1)+C_bar(3,3,k+1))*Gam(k+1)))*Epsx;
 
-        K_mod(2*NL,2*NL+1)=0;
-        F_mod(2*NL)=F_mod(2*NL)-(C_bar(1,3,NL)+(C_bar(2,3,NL)+C_bar(3,3,NL))*Gam(NL))*Epsx;
+            K_mod(2*NL,2*NL+1)=0;
+            F_mod(2*NL)=F_mod(2*NL)-(C_bar(1,3,NL)+(C_bar(2,3,NL)+C_bar(3,3,NL))*Gam(NL))*Epsx;
 
+            K_mod(2*NL+1,2*NL+1)=-1;
+
+            K_mod(2*NL+2,2*NL+1)=0;
+        end
+        for k=1:NL
+            F_mod(2*NL+1)=F_mod(2*NL+1)-...
+                    pi*(Epsx*(C_bar(1,1,k)+(C_bar(1,3,k)+C_bar(1,2,k))*Gam(k))+dT*((C_bar(1,2,k)+C_bar(1,3,k))*Psi(k)-bob(k)))*(r(k+1)^2-r(k)^2);
+            F_mod(2*NL+1)=F_mod(2*NL+1)-...
+                    Epsx*2*pi/3*(C_bar(1,6,k)+(C_bar(2,6,k)+C_bar(3,6,k))*Gam(k))*(r(k+1)^3-r(k)^3);  
+
+        end
+
+    end
+
+    if ~GivenTx
+        for k=1:NL-1
+            K_mod(1,2*NL+2)=0;
+            F_mod(1)=F_mod(1)-(C_bar(3,6,1)+(C_bar(2,3,1)+2*C_bar(3,3,1))*Omega(1))*Gamx*r(1);
+
+            K_mod(2*k,2*NL+2)=0;
+            F_mod(2*k)=F_mod(2*k)-(Omega(k)-Omega(k+1))*r(k+1)^2*Gamx;
+
+            K_mod(2*k+1,2*NL+2)=0;
+            F_mod(2*k+1)=F_mod(2*k+1)-r(k+1)*(C_bar(3,6,k)+(C_bar(2,3,k)+2*C_bar(3,3,k))*Omega(k)-(C_bar(3,6,k+1)+(C_bar(2,3,k+1)+2*C_bar(3,3,k+1))*Omega(k+1)))*Gamx;
+
+            K_mod(2*NL,2*NL+2)=0;
+            F_mod(2*NL)=F_mod(2*NL)-(C_bar(3,6,NL)+(C_bar(2,3,NL)+2*C_bar(3,3,NL))*Omega(NL))*Gamx*r(NL+1);
+
+            K_mod(2*NL+1,2*NL+2)=0;
+
+            K_mod(2*NL+2,2*NL+2)=-1;
+        end
+        for k=1:NL
+            F_mod(2*NL+1)=F_mod(2*NL+1)-Gamx*2*pi/3*(C_bar(1,6,k)+(C_bar(1,2,k)+2*C_bar(1,3,k))*Omega(k))*(r(k+1)^3-r(k)^3);
+            F_mod(2*NL+2)=F_mod(2*NL+2)-...
+                Gamx*pi/2*(C_bar(6,6,k)+(C_bar(2,6,k)+2*C_bar(3,6,k))*Omega(k))*(r(k+1)^4-r(k)^4)-...
+                dT*2*pi/3*((C_bar(2,6,k)+C_bar(3,6,k))*Psi(k)-bob(k))*(r(k+1)^3-r(k)^3);
+
+        end
+    end
+else
+    K_mod=K;
+    F_mod=F;
+    if ~GivenPx
+        F_mod=F_mod-K_mod(:,2*NL+1)*Epsx;
+        K_mod(:,2*NL+1)=0;
         K_mod(2*NL+1,2*NL+1)=-1;
-
-        K_mod(2*NL+2,2*NL+1)=0;
     end
-    for k=1:NL
-        F_mod(2*NL+1)=F_mod(2*NL+1)-...
-                pi*(Epsx*(C_bar(1,1,k)+(C_bar(1,3,k)+C_bar(1,2,k))*Gam(k))+dT*((C_bar(1,2,k)+C_bar(1,3,k))*Psi(k)-bob))*(r(k+1)^2-r(k)^2);
-        F_mod(2*NL+1)=F_mod(2*NL+1)-...
-                Epsx*2*pi/3*(C_bar(1,6,k)+(C_bar(2,6,k)+C_bar(3,6,k))*Gam(k))*(r(k+1)^3-r(k)^3);  
-
-    end
-
-end
-
-if ~GivenTx
-    for k=1:NL-1
-        K_mod(1,2*NL+2)=0;
-        F_mod(1)=F_mod(1)-(C_bar(3,6,1)+(C_bar(2,3,1)+2*C_bar(3,3,1))*Omega(1))*Gamx*r(1);
-
-        K_mod(2*k,2*NL+2)=0;
-        F_mod(2*k)=F_mod(2*k)-(Omega(k)-Omega(k+1))*r(k+1)^2*Gamx;
-
-        K_mod(2*k+1,2*NL+2)=0;
-        F_mod(2*k+1)=F_mod(2*k+1)-r(k+1)*(C_bar(3,6,k)+(C_bar(2,3,k)+2*C_bar(3,3,k))*Omega(k)-(C_bar(3,6,k+1)+(C_bar(2,3,k+1)+2*C_bar(3,3,k+1))*Omega(k+1)))*Gamx;
-
-        K_mod(2*NL,2*NL+2)=0;
-        F_mod(2*NL)=F_mod(2*NL)-(C_bar(3,6,NL)+(C_bar(2,3,NL)+2*C_bar(3,3,NL))*Omega(NL))*Gamx*r(NL+1);
-
-        K_mod(2*NL+1,2*NL+2)=0;
-
+    
+    if ~GivenTx
+        F_mod=F_mod-K_mod(:,2*NL+2)*Gamx;
+        K_mod(:,2*NL+2)=0;
         K_mod(2*NL+2,2*NL+2)=-1;
     end
-    for k=1:NL
-        F_mod(2*NL+1)=F_mod(2*NL+1)-Gamx*2*pi/3*(C_bar(1,6,k)+(C_bar(1,2,k)+2*C_bar(1,3,k))*Omega(k))*(r(k+1)^3-r(k)^3);
-        F_mod(2*NL+2)=F_mod(2*NL+2)-...
-            Gamx*pi/2*(C_bar(6,6,k)+(C_bar(2,6,k)+2*C_bar(3,6,k))*Omega(k))*(r(k+1)^4-r(k)^4)-...
-            dT*2*pi/3*((C_bar(2,6,k)+C_bar(3,6,k))*Psi(k)-bob(k))*(r(k+1)^3-r(k)^3);
-
-    end
 end
-    
 
 %% Use K and F mod to find Strains and Stresses
 
@@ -393,6 +410,7 @@ A1=zeros(NL,1);
 A2=A1;
 C_reduced=zeros(4,4,NL);
 strains=zeros(4,(rsteps+1)*NL);
+w=zeros((rsteps+1)*NL,1);
 stresses=strains;
 
 for i=1:NL
@@ -412,7 +430,8 @@ for i=1:(rsteps+1)*NL
     strains(2,i)=A1(k)*r_^(lambda(k)-1)+A2(k)*r_^(-lambda(k)-1)+Gam(k)*Epsx+Omega(k)*Gamx*r_+Psi(k)*dT; %Eps_Th
     strains(3,i)=A1(k)*lambda(k)*r_^(lambda(k)-1)-A2(k)*lambda(k)*r_^(-lambda(k)-1)+Gam(k)*Epsx+2*Omega(k)*Gamx*r_+Psi(k)*dT; %Eps_r
     strains(4,i)=Gamx*r_;%gamma_x_th
-    
+    w(i)=A1(k)*r_^(lambda(k))+A2(k)*r_^(-lambda(k))+Gam(k)*Epsx*r_+Omega(k)*Gamx*r_^2+Psi(k)*r_*dT; %w
+
     stresses(:,i)=C_reduced(:,:,k)*(strains(:,i)-dT*al_off(:,k));
 end
 

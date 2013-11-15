@@ -1,0 +1,40 @@
+close all
+clearvars
+clc
+
+myCase=1
+
+
+switch myCase
+    case 1
+        Results=zeros(12,6);
+        MaterialsFile='VerificationMaterials.txt';
+        PipeFile='VerificationPipe.dat';
+        for i1=1:4
+            LoadFile=strcat('VerificationLoads',num2str(i1),'.txt');
+            for j1=1:6
+                LayerGeoFile=strcat('VerificationLayerGeo',num2str(i1),'.dat');
+                Project_2B_Laminated_Cylinder_Axisymm
+                if i1==1
+                        Results(i1*3-2,j1)=Gamx;
+                        Results(i1*3-1,j1)=w(1);
+                        Results(i1*3,j1)=Px;
+                elseif i1==2
+                        Results(i1*3-2,j1)=Epsx;
+                        Results(i1*3-1,j1)=w(1);
+                        Results(i1*3,j1)=Tx;
+                elseif i1== 3
+                        Results(i1*3-2,j1)=Gamx;
+                        Results(i1*3-1,j1)=w(1);
+                        Results(i1*3,j1)=Epsx;
+                elseif i1== 4
+                        Results(i1*3-2,j1)=Epsx;
+                        Results(i1*3-1,j1)=Gamx;
+                        Results(i1*3,j1)=w(1);
+                end
+                        
+            end
+        end
+        
+    case 2
+end
