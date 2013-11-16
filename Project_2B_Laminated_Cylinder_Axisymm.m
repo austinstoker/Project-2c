@@ -22,7 +22,7 @@ dlmwrite('materials.txt',Mat_Types,'-append');
 % Geometry Write out
 r_in=30;
 
-Angles=[0,90,90,0]; %
+Angles=[-45,45,45,-45]; %
 
 t=.025;
 
@@ -46,13 +46,13 @@ dlmwrite('PipeDimensions.dat',r_in,'-append');
 % Loads Write out
 Pin=0;  %pressure inside the cylinder
 Pout=0; % Pressure on the outside
-dT=0;   %change in Temperature
+dT=100;   %change in Temperature
 
 GivenPx=true;
 Px_ex=0;
 
-GivenTx=false;
-Tx_Gamx=.001;
+GivenTx=true;
+Tx_Gamx=0;
 
 LoadsTemp=[Pin,Pout,dT,Px_ex,Tx_Gamx,GivenPx,GivenTx];
 LoadHeader='Pin, Pout, dT, Px/ex, Tx/Gamx, GivenPx, GivenTx';
@@ -183,8 +183,28 @@ for i=1:NL
         Psi(i)=Sigma(i)/(C_bar(3,3,i)-C_bar(2,2,i));
     end
     lambda(i)=sqrt(C_bar(2,2,i)/C_bar(3,3,i));
+    
+    
+
 end
 
+alpha=zeros(6,NL);
+alpha(1,:)=al_x(:);
+alpha(2,:)=al_th(:);
+alpha(3,:)=al_r(:);
+alpha(6,:)=al_x_th(:);
+
+Con1=zeros(NL,1);
+Con3=zeros(NL,1);
+Con6=zeros(NL,1);
+
+for k=1:NL
+    for i2=1:6
+        Con1(k)=Con1(k)+C_bar(i2,1,k)*alpha(i2,k);
+        Con3(k)=Con3(k)+C_bar(i2,3,k)*alpha(i2,k);
+        Con6(k)=Con6(k)+C_bar(i2,6,k)*alpha(i2,k);
+    end
+end 
 %% Get the K matrix
 
 K=zeros(2*NL+2,2*NL+2);
@@ -201,9 +221,7 @@ K(1,2*NL+1)=C_bar(1,3,1)+(C_bar(2,3,1)+C_bar(3,3,1))*Gam(1);
 %if(GivenTx)
 K(1,2*NL+2)=(C_bar(3,6,1)+(C_bar(2,3,1)+2*C_bar(3,3,1))*Omega(1))*r(1);
 
-
-bob=0; %TODO fix the c*alpha sum
-F(1)=-Pin-((C_bar(2,3,1)+C_bar(3,3,1))*Psi(1)-bob)*dT;
+F(1)=-Pin-((C_bar(2,3,1)+C_bar(3,3,1))*Psi(1)-Con3(1))*dT;
 
  
 for k=1:NL-1
@@ -231,9 +249,7 @@ for k=1:NL-1
     K(2*k+1,2*k+1)=-r(k+1)^(lambda(k+1)-1)*(C_bar(2,3,k+1)+lambda(k+1)*C_bar(3,3,k+1));
     K(2*k+1,2*k+2)=-r(k+1)^(-lambda(k+1)-1)*(C_bar(2,3,k+1)-lambda(k+1)*C_bar(3,3,k+1));
     
-    bob(k)=0;
-    bob(k+1)=0;
-    F(2*k+1)=((C_bar(2,3,k+1)+C_bar(3,3,k+1))*Psi(k+1)-bob(k+1)-((C_bar(2,3,k)+C_bar(3,3,k))*Psi(k)-bob(k)))*dT;
+    F(2*k+1)=((C_bar(2,3,k+1)+C_bar(3,3,k+1))*Psi(k+1)-Con3(k+1)-((C_bar(2,3,k)+C_bar(3,3,k))*Psi(k)-Con3(k)))*dT;
     
     
     %if(GivenPx)
@@ -251,7 +267,7 @@ for k=1:NL
     K(2*NL,2*NL+1)=C_bar(1,3,NL)+(C_bar(2,3,NL)+C_bar(3,3,NL))*Gam(NL);
     K(2*NL,2*NL+2)=(C_bar(3,6,NL)+(C_bar(2,3,NL)+2*C_bar(3,3,NL))*Omega(NL))*r(NL+1);
     
-    F(2*NL)=-Pout-((C_bar(3,6,NL)+C_bar(3,3,NL))*Psi(NL)-bob(k))*dT;
+    F(2*NL)=-Pout-((C_bar(3,6,NL)+C_bar(3,3,NL))*Psi(NL)-Con3(k))*dT;
     
     % 2N+1 row
     if(abs(lambda(k)+1)>1E-10)
@@ -304,7 +320,7 @@ for k=1:NL
         2*pi/3*(C_bar(1,6,k)+(C_bar(1,2,k)+2*C_bar(1,3,k))*Omega(k))*(r(k+1)^3-r(k)^3);
     
     F(2*NL+1)=F(2*NL+1)-...
-        dT*pi*((C_bar(1,2,k)+C_bar(1,3,k))*Psi(k)-bob(k))*(r(k+1)^2-r(k)^2);
+        dT*pi*((C_bar(1,2,k)+C_bar(1,3,k))*Psi(k)-Con1(k))*(r(k+1)^2-r(k)^2);
 
 
     
@@ -315,7 +331,7 @@ for k=1:NL
         pi/2*(C_bar(6,6,k)+(C_bar(2,6,k)+2*C_bar(3,6,k))*Omega(k))*(r(k+1)^4-r(k)^4);
 
     F(2*NL+2)=F(2*NL+2)-...
-        dT*2*pi/3*((C_bar(2,6,k)+C_bar(3,6,k))*Psi(k)-bob(k))*(r(k+1)^3-r(k)^3);
+        dT*2*pi/3*((C_bar(2,6,k)+C_bar(3,6,k))*Psi(k)-Con6(k))*(r(k+1)^3-r(k)^3);
         
 end
 
@@ -324,62 +340,62 @@ end
 
 % Modify K and F
 if useOldMod
-    K_mod=K;
-    F_mod=F;
-    if ~GivenPx
-        for k=1:NL-1
-            K_mod(1,2*NL+1)=0;
-            F_mod(1)=F_mod(1)-(C_bar(1,3,1)+(C_bar(2,3,1)+C_bar(3,3,1))*Gam(1))*Epsx;
-
-            K_mod(2*k,2*NL+1)=0;
-            F_mod(2*k)=F_mod(2*k)-(Gam(k)-Gam(k+1))*r(k+1)*Epsx;
-
-            K_mod(2*k+1,2*NL+1)=0;
-            F_mod(2*k+1)=F_mod(2*k+1)-(C_bar(1,3,k)+(C_bar(2,3,k)+C_bar(3,3,k))*Gam(k)-(C_bar(1,3,k+1)+(C_bar(2,3,k+1)+C_bar(3,3,k+1))*Gam(k+1)))*Epsx;
-
-            K_mod(2*NL,2*NL+1)=0;
-            F_mod(2*NL)=F_mod(2*NL)-(C_bar(1,3,NL)+(C_bar(2,3,NL)+C_bar(3,3,NL))*Gam(NL))*Epsx;
-
-            K_mod(2*NL+1,2*NL+1)=-1;
-
-            K_mod(2*NL+2,2*NL+1)=0;
-        end
-        for k=1:NL
-            F_mod(2*NL+1)=F_mod(2*NL+1)-...
-                    pi*(Epsx*(C_bar(1,1,k)+(C_bar(1,3,k)+C_bar(1,2,k))*Gam(k))+dT*((C_bar(1,2,k)+C_bar(1,3,k))*Psi(k)-bob(k)))*(r(k+1)^2-r(k)^2);
-            F_mod(2*NL+1)=F_mod(2*NL+1)-...
-                    Epsx*2*pi/3*(C_bar(1,6,k)+(C_bar(2,6,k)+C_bar(3,6,k))*Gam(k))*(r(k+1)^3-r(k)^3);  
-
-        end
-
-    end
-
-    if ~GivenTx
-        for k=1:NL-1
-            K_mod(1,2*NL+2)=0;
-            F_mod(1)=F_mod(1)-(C_bar(3,6,1)+(C_bar(2,3,1)+2*C_bar(3,3,1))*Omega(1))*Gamx*r(1);
-
-            K_mod(2*k,2*NL+2)=0;
-            F_mod(2*k)=F_mod(2*k)-(Omega(k)-Omega(k+1))*r(k+1)^2*Gamx;
-
-            K_mod(2*k+1,2*NL+2)=0;
-            F_mod(2*k+1)=F_mod(2*k+1)-r(k+1)*(C_bar(3,6,k)+(C_bar(2,3,k)+2*C_bar(3,3,k))*Omega(k)-(C_bar(3,6,k+1)+(C_bar(2,3,k+1)+2*C_bar(3,3,k+1))*Omega(k+1)))*Gamx;
-
-            K_mod(2*NL,2*NL+2)=0;
-            F_mod(2*NL)=F_mod(2*NL)-(C_bar(3,6,NL)+(C_bar(2,3,NL)+2*C_bar(3,3,NL))*Omega(NL))*Gamx*r(NL+1);
-
-            K_mod(2*NL+1,2*NL+2)=0;
-
-            K_mod(2*NL+2,2*NL+2)=-1;
-        end
-        for k=1:NL
-            F_mod(2*NL+1)=F_mod(2*NL+1)-Gamx*2*pi/3*(C_bar(1,6,k)+(C_bar(1,2,k)+2*C_bar(1,3,k))*Omega(k))*(r(k+1)^3-r(k)^3);
-            F_mod(2*NL+2)=F_mod(2*NL+2)-...
-                Gamx*pi/2*(C_bar(6,6,k)+(C_bar(2,6,k)+2*C_bar(3,6,k))*Omega(k))*(r(k+1)^4-r(k)^4)-...
-                dT*2*pi/3*((C_bar(2,6,k)+C_bar(3,6,k))*Psi(k)-bob(k))*(r(k+1)^3-r(k)^3);
-
-        end
-    end
+%     K_mod=K;
+%     F_mod=F;
+%     if ~GivenPx
+%         for k=1:NL-1
+%             K_mod(1,2*NL+1)=0;
+%             F_mod(1)=F_mod(1)-(C_bar(1,3,1)+(C_bar(2,3,1)+C_bar(3,3,1))*Gam(1))*Epsx;
+% 
+%             K_mod(2*k,2*NL+1)=0;
+%             F_mod(2*k)=F_mod(2*k)-(Gam(k)-Gam(k+1))*r(k+1)*Epsx;
+% 
+%             K_mod(2*k+1,2*NL+1)=0;
+%             F_mod(2*k+1)=F_mod(2*k+1)-(C_bar(1,3,k)+(C_bar(2,3,k)+C_bar(3,3,k))*Gam(k)-(C_bar(1,3,k+1)+(C_bar(2,3,k+1)+C_bar(3,3,k+1))*Gam(k+1)))*Epsx;
+% 
+%             K_mod(2*NL,2*NL+1)=0;
+%             F_mod(2*NL)=F_mod(2*NL)-(C_bar(1,3,NL)+(C_bar(2,3,NL)+C_bar(3,3,NL))*Gam(NL))*Epsx;
+% 
+%             K_mod(2*NL+1,2*NL+1)=-1;
+% 
+%             K_mod(2*NL+2,2*NL+1)=0;
+%         end
+%         for k=1:NL
+%             F_mod(2*NL+1)=F_mod(2*NL+1)-...
+%                     pi*(Epsx*(C_bar(1,1,k)+(C_bar(1,3,k)+C_bar(1,2,k))*Gam(k))+dT*((C_bar(1,2,k)+C_bar(1,3,k))*Psi(k)-bob(k)))*(r(k+1)^2-r(k)^2);
+%             F_mod(2*NL+1)=F_mod(2*NL+1)-...
+%                     Epsx*2*pi/3*(C_bar(1,6,k)+(C_bar(2,6,k)+C_bar(3,6,k))*Gam(k))*(r(k+1)^3-r(k)^3);  
+% 
+%         end
+% 
+%     end
+% 
+%     if ~GivenTx
+%         for k=1:NL-1
+%             K_mod(1,2*NL+2)=0;
+%             F_mod(1)=F_mod(1)-(C_bar(3,6,1)+(C_bar(2,3,1)+2*C_bar(3,3,1))*Omega(1))*Gamx*r(1);
+% 
+%             K_mod(2*k,2*NL+2)=0;
+%             F_mod(2*k)=F_mod(2*k)-(Omega(k)-Omega(k+1))*r(k+1)^2*Gamx;
+% 
+%             K_mod(2*k+1,2*NL+2)=0;
+%             F_mod(2*k+1)=F_mod(2*k+1)-r(k+1)*(C_bar(3,6,k)+(C_bar(2,3,k)+2*C_bar(3,3,k))*Omega(k)-(C_bar(3,6,k+1)+(C_bar(2,3,k+1)+2*C_bar(3,3,k+1))*Omega(k+1)))*Gamx;
+% 
+%             K_mod(2*NL,2*NL+2)=0;
+%             F_mod(2*NL)=F_mod(2*NL)-(C_bar(3,6,NL)+(C_bar(2,3,NL)+2*C_bar(3,3,NL))*Omega(NL))*Gamx*r(NL+1);
+% 
+%             K_mod(2*NL+1,2*NL+2)=0;
+% 
+%             K_mod(2*NL+2,2*NL+2)=-1;
+%         end
+%         for k=1:NL
+%             F_mod(2*NL+1)=F_mod(2*NL+1)-Gamx*2*pi/3*(C_bar(1,6,k)+(C_bar(1,2,k)+2*C_bar(1,3,k))*Omega(k))*(r(k+1)^3-r(k)^3);
+%             F_mod(2*NL+2)=F_mod(2*NL+2)-...
+%                 Gamx*pi/2*(C_bar(6,6,k)+(C_bar(2,6,k)+2*C_bar(3,6,k))*Omega(k))*(r(k+1)^4-r(k)^4)-...
+%                 dT*2*pi/3*((C_bar(2,6,k)+C_bar(3,6,k))*Psi(k)-bob(k))*(r(k+1)^3-r(k)^3);
+% 
+%         end
+%     end
 else
     K_mod=K;
     F_mod=F;

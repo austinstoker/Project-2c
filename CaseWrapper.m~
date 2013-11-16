@@ -13,7 +13,7 @@ switch myCase
         for i1=1:4
             LoadFile=strcat('VerificationLoads',num2str(i1),'.txt');
             for j1=1:6
-                LayerGeoFile=strcat('VerificationLayerGeo',num2str(i1),'.dat');
+                LayerGeoFile=strcat('VerificationLayerGeo',num2str(j1),'.dat');
                 Project_2B_Laminated_Cylinder_Axisymm
                 if i1==1
                         Results(i1*3-2,j1)=Gamx;
@@ -25,12 +25,12 @@ switch myCase
                         Results(i1*3,j1)=Tx;
                 elseif i1== 3
                         Results(i1*3-2,j1)=Gamx;
-                        Results(i1*3-1,j1)=wi;
+                        Results(i1*3-1,j1)=w(1);
                         Results(i1*3,j1)=Epsx;
                 elseif i1== 4
                         Results(i1*3-2,j1)=Epsx;
                         Results(i1*3-1,j1)=Gamx;
-                        Results(i1*3,j1)=wi;
+                        Results(i1*3,j1)=w(1);
                 end
                         
             end

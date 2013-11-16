@@ -34,7 +34,21 @@ switch myCase
                 end
                         
             end
+        end    
+    case 2
+        Results=zeros(12,6);
+        MaterialsFile='VerificationMaterials.txt';
+        PipeFile='VerificationPipe.dat';
+        for i1=1:4
+            LoadFile=strcat('VerificationLoads',num2str(i1),'.txt');
+            for j1=3:6
+                LayerGeoFile=strcat('VerificationLayerGeo',num2str(j1),'.dat');
+                Project_2B_Laminated_Cylinder_Axisymm
+                if i1==1
+                    
+                end
+            end
         end
         
-    case 2
+        
 end
