@@ -1,0 +1,2 @@
+Pin, Pout, dT, Px/ex, Tx/Gamx, GivenPx, GivenTx
+0,0,100,0,0,1,1
